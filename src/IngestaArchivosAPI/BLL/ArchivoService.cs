@@ -11,7 +11,8 @@ public record OcrResult(
     string? Error,
     double TotalSeconds,
     string? ExtractedText,
-    Dictionary<string, double> Timings
+    Dictionary<string, double> Timings,
+    string? SavedFilePath
 );
 
 public class ArchivoService
@@ -27,7 +28,7 @@ public class ArchivoService
         _logger = logger;
     }
 
-    public async Task<OcrResult> ProcesarArchivoAsync(IFormFile archivo, int officeId, int userId)
+    public async Task<OcrResult> ProcesarArchivoAsync(IFormFile archivo)
     {
         DateTime time0 = DateTime.Now;
         var timing = new Dictionary<string, double>();
@@ -42,7 +43,8 @@ public class ArchivoService
                 Error: $"Solo se procesan archivos PDF. Archivo recibido: {extension}",
                 TotalSeconds: 0,
                 ExtractedText: null,
-                Timings: timing
+                Timings: timing,
+                SavedFilePath: null
             );
         }
 
@@ -56,6 +58,11 @@ public class ArchivoService
             var contenidoTexto = await ProcesarPdfConOcr(archivo);
             timing["ProcesarPdfConOcr"] = stopwatch.Elapsed.TotalSeconds;
             
+            stopwatch.Restart();
+            // Guardar el texto extraído en archivo .md
+            var savedFilePath = await GuardarTextoComoMarkdown(archivo.FileName, contenidoTexto);
+            timing["GuardarMarkdown"] = stopwatch.Elapsed.TotalSeconds;
+            
             var duration = DateTime.Now - time0;
             timing["Total"] = duration.TotalSeconds;
 
@@ -67,7 +74,8 @@ public class ArchivoService
                 Error: null,
                 TotalSeconds: duration.TotalSeconds,
                 ExtractedText: contenidoTexto,
-                Timings: timing
+                Timings: timing,
+                SavedFilePath: savedFilePath
             );
         }
         catch (Exception ex)
@@ -82,7 +90,8 @@ public class ArchivoService
                 Error: ex.Message,
                 TotalSeconds: duration.TotalSeconds,
                 ExtractedText: null,
-                Timings: timing
+                Timings: timing,
+                SavedFilePath: null
             );
         }
     }
@@ -127,6 +136,9 @@ public class ArchivoService
 
             var jsonResponse = await response.Content.ReadAsStringAsync();
             _logger.LogInformation("📄 Respuesta OCR recibida - Tamaño: {Size} caracteres", jsonResponse?.Length ?? 0);
+            
+            // LOG TEMPORAL: Ver respuesta completa del OCR para análisis
+            _logger.LogInformation("🔍 RESPUESTA COMPLETA OCR: {JsonResponse}", jsonResponse);
 
             // Parsear la respuesta JSON y extraer el texto reconstruido
             using var document = JsonDocument.Parse(jsonResponse);
@@ -152,4 +164,37 @@ public class ArchivoService
             throw new InvalidOperationException($"Error al procesar PDF con OCR: {ex.Message}", ex);
         }
     }
+
+    private async Task<string> GuardarTextoComoMarkdown(string nombreArchivo, string textoExtraido)
+    {
+        try
+        {
+            // Crear directorio si no existe
+            var outputDir = Path.Combine(Directory.GetCurrentDirectory(), "extracted-texts");
+            if (!Directory.Exists(outputDir))
+            {
+                Directory.CreateDirectory(outputDir);
+                _logger.LogInformation("📁 Directorio creado: {OutputDir}", outputDir);
+            }
+
+            // Generar nombre único para el archivo .md
+            var nombreSinExtension = Path.GetFileNameWithoutExtension(nombreArchivo);
+            var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+            var nombreArchivoMd = $"{nombreSinExtension}_{timestamp}.md";
+            var rutaCompleta = Path.Combine(outputDir, nombreArchivoMd);
+
+            // Escribir el contenido al archivo .md
+            await File.WriteAllTextAsync(rutaCompleta, textoExtraido);
+            
+            _logger.LogInformation("💾 Texto extraído guardado en: {FilePath}", rutaCompleta);
+            
+            return rutaCompleta;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "❌ Error guardando archivo .md: {Message}", ex.Message);
+            throw new InvalidOperationException($"Error guardando archivo .md: {ex.Message}", ex);
+        }
+    }
+
 }

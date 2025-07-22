@@ -10,5 +10,34 @@ services:
       - "8080:8080"
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
-      - OCR__Endpoint=http://174.138.117.37:8081/extract-lines
+      - OCR__Endpoint=http://custom-ocr-extractor:8081/extract-lines
+    volumes:
+      - ./extracted-texts:/app/extracted-texts
+    depends_on:
+      - custom-ocr-extractor
+    networks:
+      - app-network
     restart: unless-stopped
+
+  custom-ocr-extractor:
+    build:
+      context: ../phase2-ocr-custom
+      dockerfile: Dockerfile
+    container_name: custom-ocr-extractor
+    ports:
+      - "8081:8081"
+    volumes:
+      - ../phase2-ocr-custom/output:/app/output
+    networks:
+      - app-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  app-network:
+    driver: bridge

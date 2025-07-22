@@ -7,21 +7,19 @@ namespace IngestaArchivosAPI.Controllers;
 [Route("api/[controller]")]
 public class ArchivosController(ArchivoService _archivoService) : ControllerBase
 {
-    [HttpPost("{office_id}/{userId}")]
+    [HttpPost]
     [RequestSizeLimit(10485760)] // 10 MB límite
-    public async Task<IActionResult> SubirArchivo(IFormFile archivo, [FromRoute] int office_id, [FromRoute] int userId)
+    public async Task<IActionResult> SubirArchivo(IFormFile archivo)
     {
         try
         {
-            var resultado = await _archivoService.ProcesarArchivoAsync(archivo, office_id, userId);
+            var resultado = await _archivoService.ProcesarArchivoAsync(archivo);
 
             if (!resultado.Success)
             {
                 return BadRequest(new 
                 { 
                     error = resultado.Error, 
-                    office_id, 
-                    userId, 
                     fileName = archivo?.FileName,
                     details = "Error en procesamiento OCR de PDF"
                 });
@@ -34,9 +32,8 @@ public class ArchivosController(ArchivoService _archivoService) : ControllerBase
                 timings = resultado.Timings,
                 extractedText = resultado.ExtractedText,
                 textLength = resultado.ExtractedText?.Length ?? 0,
-                office_id,
-                userId,
-                fileName = archivo?.FileName
+                fileName = archivo?.FileName,
+                savedFilePath = resultado.SavedFilePath
             });
         }
         catch (Exception ex)
@@ -47,8 +44,6 @@ public class ArchivosController(ArchivoService _archivoService) : ControllerBase
                 message = ex.Message,
                 innerException = ex.InnerException?.Message,
                 stackTrace = ex.StackTrace,
-                office_id,
-                userId,
                 fileName = archivo?.FileName,
                 timestamp = DateTime.UtcNow
             });

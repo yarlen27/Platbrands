@@ -4,18 +4,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is IngestaArchivosAPI, a .NET 8 Web API that processes document files through OCR and AI extraction. The application integrates with OpenAI services, MinIO object storage, and PostgreSQL database to handle document ingestion, processing, and data extraction workflows.
+This is IngestaArchivosAPI, a simplified .NET 8 Web API that processes PDF documents through OCR extraction. The application focuses solely on extracting structured text from PDF files using an external OCR service.
 
 ## Key Architecture
 
 - **ASP.NET Core 8 Web API** with controllers in `src/IngestaArchivosAPI/Controllers/`
-- **Entity Framework Core** with PostgreSQL using `ApplicationDbContext` in `src/IngestaArchivosAPI/Data/`
 - **Business Logic Layer** in `src/IngestaArchivosAPI/BLL/` (primarily `ArchivoService`)
 - **External Services Integration**:
-  - OpenAI API for document processing and AI extraction
-  - MinIO object storage for file management
-  - External OCR service endpoint
-- **Background Services** for monitoring fine-tuning jobs
+  - External OCR service endpoint for PDF text extraction
 - **Docker containerization** with docker-compose deployment
 
 ## Development Commands
@@ -57,91 +53,56 @@ docker compose logs
 docker compose down
 ```
 
-## Deployment
-
-### Production Deployment
-```bash
-# Automated deployment to production server
-./deploy.sh
-
-# Manual deployment parameters
-./deploy.sh [environment] [server_user] [server_host] [branch]
-```
-
-The deployment script automatically:
-- Connects to production server via SSH
-- Updates code from Git repository
-- Rebuilds and restarts Docker containers
-- Performs health checks
+## Configuration
 
 ### Environment Configuration
 
 Key configuration files:
-- `appsettings.json` - Base configuration
-- `appsettings.Development.json` - Development overrides
-- `appsettings.Production.json` - Production overrides
+- `appsettings.Example.json` - Example configuration template
+- `appsettings.Development.json` - Development overrides (not tracked)
+- `appsettings.Production.json` - Production overrides (not tracked)
 
-Required environment variables for production:
-- `OPENAI_API_KEY` - OpenAI API key
-- `ASPNETCORE_ENVIRONMENT` - Set to "Production"
-
-## Core Data Models
-
-### Primary Entities (`src/IngestaArchivosAPI/Data/`)
-- `ArchivoIngestado` - Main file ingestion records
-- `ProcesoOcr` - OCR processing status and results
-- `Assistant` - OpenAI assistant configurations per office
-- `PromptIa` - AI prompt templates
-- `ExtractionValidation` - Validation results for extracted data
-- `FineTuningJob` - OpenAI fine-tuning job tracking
-
-### Business Models (`src/IngestaArchivosAPI/Models/`)
-- `Transaction` / `TransactionHeader` - Financial transaction data
-- `AssistantResponse` - AI processing responses
-- `OfficeModelConfig` - Office-specific AI model configurations
-
-## Key Services and Utilities
-
-### Services (`src/IngestaArchivosAPI/Services/`)
-- `OpenAIServiceSimple` - OpenAI API integration
-- `MinioService` - Object storage operations
-- `FineTuningMonitorService` - Background service for monitoring AI training
-
-### Utilities (`src/IngestaArchivosAPI/Utils/`)
-- `OpenAIUtils` - OpenAI helper functions and prompts
-- `MinioUtils` - File storage utilities
-- `DbUtils` - Database helper operations
-- `FileUtils` - File processing utilities
-- `FineTuningUtils` - AI model training utilities
+Required configuration:
+- `OCR:Endpoint` - URL of the external OCR service
+- `ASPNETCORE_ENVIRONMENT` - Set to "Development" or "Production"
 
 ## API Endpoints
 
-Main controllers:
-- `/api/archivos/{office_id}/{userId}` - File upload and processing
-- `/api/prompts/` - AI prompt management
-- `/api/test/` - Health checks and testing endpoints
+### Main Controller
+- `POST /api/archivos/{office_id}/{userId}` - PDF upload and OCR processing
+  - Accepts PDF files up to 10MB
+  - Returns structured text extracted via OCR
+  - Response includes timing information and extracted text
+- `GET /api/archivos/version` - Application version information
 
-## Database Schema
-
-The application uses PostgreSQL with Entity Framework migrations. Key tables:
-- `archivos_ingestados` - File ingestion tracking
-- `proceso_ocr` - OCR processing results
-- `asistente_oficina` - Assistant configurations per office
-- `prompts_ia` - AI prompt templates
-- `extraction_validations` - Data validation results
+### Test Endpoints
+- `GET /api/test/health` - Simple health check endpoint
 
 ## External Dependencies
 
-- **PostgreSQL** database (port 55433 in dev)
-- **MinIO** object storage (port 9002 in dev)
-- **OpenAI API** for AI processing
-- **External OCR service** (port 8081 in dev)
+- **External OCR service** - Processes PDF files and extracts structured text
+  - Default endpoint: `http://localhost:8081/extract-lines`
+  - Configurable via `OCR:Endpoint` setting
 
-## File Processing Workflow
+## PDF Processing Workflow
 
-1. File upload via `ArchivosController`
-2. Duplicate detection and storage via `MinioService`
-3. OCR processing through external service
-4. AI extraction using OpenAI assistant
-5. Data validation and storage
-6. Response with processing results and timings
+**Simplified workflow for PDF-only processing:**
+
+1. **File Upload** - PDF file uploaded via `POST /api/archivos/{office_id}/{userId}`
+2. **Validation** - Verify file is PDF format (rejects non-PDF files)
+3. **OCR Processing** - Send PDF to external OCR service
+4. **Text Extraction** - Parse OCR response and extract `reconstructed_text` field
+5. **Response** - Return structured response with:
+   - `success` - Boolean indicating success/failure
+   - `extractedText` - Full text content extracted from PDF
+   - `textLength` - Character count of extracted text
+   - `totalSeconds` - Total processing time
+   - `timings` - Detailed timing breakdown
+
+## Key Implementation Notes
+
+- **PDF-Only Processing**: Application now only accepts PDF files, rejects all other formats
+- **No Database Dependencies**: Removed all database, OpenAI, and MinIO integrations
+- **Simplified Dependencies**: Only requires HTTP client for OCR service communication
+- **OCR Integration**: Sends PDF as multipart form data to external OCR endpoint
+- **Error Handling**: Comprehensive error handling with detailed logging throughout OCR process
