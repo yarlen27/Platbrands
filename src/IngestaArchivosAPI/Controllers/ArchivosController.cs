@@ -17,9 +17,14 @@ public class ArchivosController(ArchivoService _archivoService) : ControllerBase
 
             if (!resultado.Success)
             {
-                return resultado.Error == "Archivo duplicado."
-                    ? Conflict(new { error = resultado.Error, office_id, userId, fileName = archivo?.FileName })
-                    : BadRequest(new { error = resultado.Error, office_id, userId, fileName = archivo?.FileName, details = "Error en procesamiento de archivo" });
+                return BadRequest(new 
+                { 
+                    error = resultado.Error, 
+                    office_id, 
+                    userId, 
+                    fileName = archivo?.FileName,
+                    details = "Error en procesamiento OCR de PDF"
+                });
             }
 
             return Ok(new
@@ -27,8 +32,8 @@ public class ArchivosController(ArchivoService _archivoService) : ControllerBase
                 success = true,
                 totalSeconds = resultado.TotalSeconds,
                 timings = resultado.Timings,
-                chunkTimings = resultado.ChunkTimings ?? new List<Dictionary<string, double>>(),
-                result = resultado.Result,
+                extractedText = resultado.ExtractedText,
+                textLength = resultado.ExtractedText?.Length ?? 0,
                 office_id,
                 userId,
                 fileName = archivo?.FileName

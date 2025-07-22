@@ -1,9 +1,4 @@
 using IngestaArchivosAPI.BLL;
-using IngestaArchivosAPI.Data;
-using IngestaArchivosAPI.Services;
-using IngestaArchivosAPI.Utils;
-using Microsoft.EntityFrameworkCore;
-using Minio;
 using System.Text.Json;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -12,40 +7,13 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Logging.ClearProviders();
 builder.Logging.AddConsole();
 
-// Entity Framework PostgreSQL
-builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
-
-// Minio Client
-var minioClient = new MinioClient()
-    .WithEndpoint(builder.Configuration["Minio:Endpoint"])
-    .WithCredentials(builder.Configuration["Minio:AccessKey"], builder.Configuration["Minio:SecretKey"])
-    .WithSSL(false)
-    .Build();
-
-builder.Services.AddSingleton(minioClient);
-
-// Services
-builder.Services.AddScoped<MinioService>();
+// Services - Solo ArchivoService para OCR
 builder.Services.AddScoped<ArchivoService>();
-builder.Services.AddScoped<DbUtils>();
-builder.Services.AddScoped<OpenAIUtils>();
-builder.Services.AddScoped<MinioUtils>();
-
-// Background Services
-builder.Services.AddHostedService<FineTuningMonitorService>();
 
 // HttpClient para ArchivoService (para OCR) - Configurado con timeout extendido
 builder.Services.AddHttpClient("OCR", client =>
 {
     client.Timeout = TimeSpan.FromMinutes(15); // 15 minutos para OCR procesamiento
-});
-
-// HttpClient para OpenAI Services
-builder.Services.AddHttpClient("OpenAI", client =>
-{
-    client.MaxResponseContentBufferSize = 50 * 1024 * 1024; // 50MB buffer
-    client.Timeout = TimeSpan.FromMinutes(10); // 10 min timeout
 });
 
 // Swagger
