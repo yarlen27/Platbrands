@@ -1,0 +1,6 @@
+@IngestaArchivosAPI_HostAddress = http://localhost:5039
+
+GET {{IngestaArchivosAPI_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  ingesta-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ingesta-api
+    ports:
+      - "8080:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+    networks:
+      - lsi-net
+    restart: unless-stopped
+
+networks:
+  lsi-net:
+    external: true
+
+volumes:
+  postgres_data:
